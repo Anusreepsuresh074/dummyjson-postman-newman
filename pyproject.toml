@@ -1,0 +1,10 @@
+# Lint and format settings for the helper scripts in scripts/ (same rules as the companion projects).
+# There is no Python package here: the scripts use only the standard library.
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["skills", "agents", "context", "node_modules"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]

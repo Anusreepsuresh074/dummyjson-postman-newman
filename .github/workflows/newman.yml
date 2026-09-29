@@ -1,0 +1,162 @@
+name: API tests (Newman)
+
+# Built by postman-ci-integration.
+#   every push and pull request, a manual run, and nightly at 02:30 UTC
+#   1. static checks: npm ci, every collection / environment / data file parses, shellcheck, ruff (no requests sent)
+#   2. API tests: the main folders and the data-driven search gate the build; the known-defects folder runs
+#      too but never fails it; every report is scanned for leaked secrets
+#   3. publish: the latest HTML reports go to GitHub Pages (main branch and manual runs only)
+# Every run goes through scripts/run-newman.sh, exactly as locally.
+#
+# One-time repo setup:
+#   Settings -> Secrets and variables -> Actions: AUTH_USERNAME, AUTH_PASSWORD (a public DummyJSON test user)
+#   Settings -> Pages -> Deploy from a branch -> gh-pages
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 2 * * *"
+
+# One run at a time against a shared public API (100 requests per 10 s per IP).
+concurrency:
+  group: newman-api-tests
+  cancel-in-progress: false
+
+jobs:
+  static-checks:
+    name: Static checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Collection, environment and data files parse
+        run: |
+          node -e "for (const f of process.argv.slice(1)) { JSON.parse(require('fs').readFileSync(f)); console.log('ok', f) }" \
+            collections/*.json environments/*.json
+          node -e "
+            const rows = require('fs').readFileSync('data/search-terms.csv', 'utf8').trim().split('\n');
+            if (rows[0] !== 'term,expectMatches' || rows.length < 2) { console.error('bad CSV header or no rows'); process.exit(1) }
+            console.log('ok data/search-terms.csv,', rows.length - 1, 'rows')"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.16.8 shellcheck-py==0.11.0.1
+      - name: Lint shell and Python scripts
+        run: |
+          shellcheck scripts/*.sh
+          ruff check scripts/
+          ruff format --check scripts/
+
+  api-tests:
+    name: API tests
+    needs: static-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      AUTH_USERNAME: ${{ secrets.AUTH_USERNAME }}
+      AUTH_PASSWORD: ${{ secrets.AUTH_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Check the test user secrets
+        id: secrets
+        run: |
+          if [ -n "$AUTH_USERNAME" ] && [ -n "$AUTH_PASSWORD" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::AUTH_USERNAME / AUTH_PASSWORD are not set (for example on a fork). Skipping the live API tests."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Main folders (gating)
+        id: main
+        if: steps.secrets.outputs.available == 'true'
+        continue-on-error: true
+        run: scripts/run-newman.sh main
+
+      - name: Data-driven search (gating)
+        id: data
+        if: steps.secrets.outputs.available == 'true'
+        continue-on-error: true
+        run: scripts/run-newman.sh data
+
+      - name: Known defects (not gating)
+        if: steps.secrets.outputs.available == 'true'
+        continue-on-error: true
+        run: scripts/run-newman.sh defects
+
+      - name: Summaries
+        if: always() && steps.secrets.outputs.available == 'true'
+        run: |
+          for run in reports/*/; do
+            python3 scripts/summarize.py "$run" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Secret check
+        if: always() && steps.secrets.outputs.available == 'true'
+        run: scripts/check-secrets.sh reports
+
+      - name: Build the report site
+        if: always() && steps.secrets.outputs.available == 'true'
+        run: python3 scripts/build-site.py reports site
+
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.secrets.outputs.available == 'true'
+        with:
+          name: newman-reports-${{ github.run_id }}
+          path: |
+            reports/
+            site/
+          retention-days: 14
+
+      - name: Gate on the main and data-driven runs
+        if: steps.secrets.outputs.available == 'true'
+        run: |
+          echo "main: ${{ steps.main.outcome }}, data: ${{ steps.data.outcome }}"
+          [ "${{ steps.main.outcome }}" = "success" ] && [ "${{ steps.data.outcome }}" = "success" ]
+
+  publish:
+    name: Publish reports
+    needs: api-tests
+    if: always() && needs.api-tests.result != 'skipped' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        id: download
+        continue-on-error: true
+        with:
+          name: newman-reports-${{ github.run_id }}
+          path: artifact
+      - name: Check there is a site to publish
+        id: site
+        run: |
+          if [ -f artifact/site/index.html ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No report site in this run: nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to GitHub Pages
+        if: steps.site.outputs.publish == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: artifact/site

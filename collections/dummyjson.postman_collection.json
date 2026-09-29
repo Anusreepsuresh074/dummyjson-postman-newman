@@ -1,0 +1,2856 @@
+{
+  "info": {
+    "_postman_id": "c0e74e77-54a7-598f-99b3-89916ad3234c",
+    "name": "DummyJSON API tests",
+    "description": "Postman + Newman tests for the DummyJSON e-commerce API: auth (JWT login, current user, refresh) and products. Built from `context/test-case-matrix.md`; each request's description names its Case ID and rule. Run with `scripts/run-newman.sh main|data|defects`. Credentials are passed at run time and never stored here.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// DummyJSON sits behind Cloudflare, which refuses some default script user-agents",
+          "// (error 1010). Send an explicit one on every request.",
+          "pm.request.headers.upsert({ key: 'User-Agent', value: 'dummyjson-postman-newman' });"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Shared checks for every request (context/test-case-matrix.md).",
+          "const maxMs = Number(pm.environment.get('maxResponseMs') || 3000);",
+          "pm.test(`[shared] responds within ${maxMs} ms`, () => {",
+          "    pm.expect(pm.response.responseTime).to.be.below(maxMs);",
+          "});",
+          "if (pm.response.text().length > 0) {",
+          "    pm.test('[shared] body is JSON', () => {",
+          "        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "    });",
+          "}",
+          "if (pm.response.code >= 400) {",
+          "    pm.test('[shared] error body is exactly {\"message\": string}', () => {",
+          "        pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('errorSchema')));",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "protocolProfileBehavior": {
+    "disableCookies": true
+  },
+  "variable": [
+    {
+      "key": "productSchema",
+      "value": "{\"type\": \"object\", \"properties\": {\"id\": {\"type\": \"integer\"}, \"title\": {\"type\": \"string\"}, \"description\": {\"type\": \"string\"}, \"category\": {\"type\": \"string\"}, \"price\": {\"type\": \"number\", \"minimum\": 0}, \"discountPercentage\": {\"type\": \"number\"}, \"rating\": {\"type\": \"number\", \"minimum\": 0, \"maximum\": 5}, \"stock\": {\"type\": \"integer\", \"minimum\": 0}, \"tags\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"brand\": {\"type\": \"string\"}, \"sku\": {\"type\": \"string\"}, \"weight\": {\"type\": \"number\"}, \"dimensions\": {\"type\": \"object\", \"properties\": {\"width\": {\"type\": \"number\"}, \"height\": {\"type\": \"number\"}, \"depth\": {\"type\": \"number\"}}, \"required\": [\"width\", \"height\", \"depth\"], \"additionalProperties\": false}, \"warrantyInformation\": {\"type\": \"string\"}, \"shippingInformation\": {\"type\": \"string\"}, \"availabilityStatus\": {\"type\": \"string\"}, \"reviews\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"rating\": {\"type\": \"integer\", \"minimum\": 1, \"maximum\": 5}, \"comment\": {\"type\": \"string\"}, \"date\": {\"type\": \"string\"}, \"reviewerName\": {\"type\": \"string\"}, \"reviewerEmail\": {\"type\": \"string\"}}, \"required\": [\"rating\", \"comment\", \"date\", \"reviewerName\", \"reviewerEmail\"], \"additionalProperties\": false}}, \"returnPolicy\": {\"type\": \"string\"}, \"minimumOrderQuantity\": {\"type\": \"integer\"}, \"meta\": {\"type\": \"object\", \"properties\": {\"createdAt\": {\"type\": \"string\"}, \"updatedAt\": {\"type\": \"string\"}, \"barcode\": {\"type\": \"string\"}, \"qrCode\": {\"type\": \"string\"}}, \"required\": [\"createdAt\", \"updatedAt\", \"barcode\", \"qrCode\"], \"additionalProperties\": false}, \"thumbnail\": {\"type\": \"string\"}, \"images\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}}, \"required\": [\"availabilityStatus\", \"category\", \"description\", \"dimensions\", \"discountPercentage\", \"id\", \"images\", \"meta\", \"minimumOrderQuantity\", \"price\", \"rating\", \"returnPolicy\", \"reviews\", \"shippingInformation\", \"sku\", \"stock\", \"tags\", \"thumbnail\", \"title\", \"warrantyInformation\", \"weight\"], \"additionalProperties\": false}",
+      "type": "string"
+    },
+    {
+      "key": "productListSchema",
+      "value": "{\"type\": \"object\", \"properties\": {\"products\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"id\": {\"type\": \"integer\"}, \"title\": {\"type\": \"string\"}, \"description\": {\"type\": \"string\"}, \"category\": {\"type\": \"string\"}, \"price\": {\"type\": \"number\", \"minimum\": 0}, \"discountPercentage\": {\"type\": \"number\"}, \"rating\": {\"type\": \"number\", \"minimum\": 0, \"maximum\": 5}, \"stock\": {\"type\": \"integer\", \"minimum\": 0}, \"tags\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"brand\": {\"type\": \"string\"}, \"sku\": {\"type\": \"string\"}, \"weight\": {\"type\": \"number\"}, \"dimensions\": {\"type\": \"object\", \"properties\": {\"width\": {\"type\": \"number\"}, \"height\": {\"type\": \"number\"}, \"depth\": {\"type\": \"number\"}}, \"required\": [\"width\", \"height\", \"depth\"], \"additionalProperties\": false}, \"warrantyInformation\": {\"type\": \"string\"}, \"shippingInformation\": {\"type\": \"string\"}, \"availabilityStatus\": {\"type\": \"string\"}, \"reviews\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"rating\": {\"type\": \"integer\", \"minimum\": 1, \"maximum\": 5}, \"comment\": {\"type\": \"string\"}, \"date\": {\"type\": \"string\"}, \"reviewerName\": {\"type\": \"string\"}, \"reviewerEmail\": {\"type\": \"string\"}}, \"required\": [\"rating\", \"comment\", \"date\", \"reviewerName\", \"reviewerEmail\"], \"additionalProperties\": false}}, \"returnPolicy\": {\"type\": \"string\"}, \"minimumOrderQuantity\": {\"type\": \"integer\"}, \"meta\": {\"type\": \"object\", \"properties\": {\"createdAt\": {\"type\": \"string\"}, \"updatedAt\": {\"type\": \"string\"}, \"barcode\": {\"type\": \"string\"}, \"qrCode\": {\"type\": \"string\"}}, \"required\": [\"createdAt\", \"updatedAt\", \"barcode\", \"qrCode\"], \"additionalProperties\": false}, \"thumbnail\": {\"type\": \"string\"}, \"images\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}}, \"required\": [\"availabilityStatus\", \"category\", \"description\", \"dimensions\", \"discountPercentage\", \"id\", \"images\", \"meta\", \"minimumOrderQuantity\", \"price\", \"rating\", \"returnPolicy\", \"reviews\", \"shippingInformation\", \"sku\", \"stock\", \"tags\", \"thumbnail\", \"title\", \"warrantyInformation\", \"weight\"], \"additionalProperties\": false}}, \"total\": {\"type\": \"integer\", \"minimum\": 0}, \"skip\": {\"type\": \"integer\", \"minimum\": 0}, \"limit\": {\"type\": \"integer\", \"minimum\": 0}}, \"required\": [\"products\", \"total\", \"skip\", \"limit\"], \"additionalProperties\": false}",
+      "type": "string"
+    },
+    {
+      "key": "loginSchema",
+      "value": "{\"type\": \"object\", \"properties\": {\"id\": {\"type\": \"integer\"}, \"username\": {\"type\": \"string\"}, \"email\": {\"type\": \"string\"}, \"firstName\": {\"type\": \"string\"}, \"lastName\": {\"type\": \"string\"}, \"gender\": {\"type\": \"string\"}, \"image\": {\"type\": \"string\"}, \"accessToken\": {\"type\": \"string\", \"pattern\": \"^[A-Za-z0-9_-]+\\\\.[A-Za-z0-9_-]+\\\\.[A-Za-z0-9_-]+$\"}, \"refreshToken\": {\"type\": \"string\", \"pattern\": \"^[A-Za-z0-9_-]+\\\\.[A-Za-z0-9_-]+\\\\.[A-Za-z0-9_-]+$\"}}, \"required\": [\"id\", \"username\", \"email\", \"firstName\", \"lastName\", \"gender\", \"image\", \"accessToken\", \"refreshToken\"], \"additionalProperties\": false}",
+      "type": "string"
+    },
+    {
+      "key": "refreshSchema",
+      "value": "{\"type\": \"object\", \"properties\": {\"accessToken\": {\"type\": \"string\", \"pattern\": \"^[A-Za-z0-9_-]+\\\\.[A-Za-z0-9_-]+\\\\.[A-Za-z0-9_-]+$\"}, \"refreshToken\": {\"type\": \"string\", \"pattern\": \"^[A-Za-z0-9_-]+\\\\.[A-Za-z0-9_-]+\\\\.[A-Za-z0-9_-]+$\"}}, \"required\": [\"accessToken\", \"refreshToken\"], \"additionalProperties\": false}",
+      "type": "string"
+    },
+    {
+      "key": "currentUserSchema",
+      "value": "{\"type\": \"object\", \"properties\": {\"id\": {\"type\": \"integer\"}, \"username\": {\"type\": \"string\"}, \"email\": {\"type\": \"string\"}, \"firstName\": {\"type\": \"string\"}, \"lastName\": {\"type\": \"string\"}, \"gender\": {\"type\": \"string\"}, \"image\": {\"type\": \"string\"}}, \"required\": [\"id\", \"username\", \"email\", \"firstName\", \"lastName\"]}",
+      "type": "string"
+    },
+    {
+      "key": "errorSchema",
+      "value": "{\"type\": \"object\", \"properties\": {\"message\": {\"type\": \"string\"}}, \"required\": [\"message\"], \"additionalProperties\": false}",
+      "type": "string"
+    },
+    {
+      "key": "categoriesSchema",
+      "value": "{\"type\": \"array\", \"minItems\": 1, \"items\": {\"type\": \"object\", \"properties\": {\"slug\": {\"type\": \"string\"}, \"name\": {\"type\": \"string\"}, \"url\": {\"type\": \"string\"}}, \"required\": [\"slug\", \"name\", \"url\"], \"additionalProperties\": false}}",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "id": "07eb0d5d-f168-5064-88b1-523ef6310e07",
+      "name": "01 Auth",
+      "description": "Login, current user and refresh. The first request saves the tokens every later folder uses.",
+      "item": [
+        {
+          "id": "2795833e-1e2f-54da-ac12-81eb62ab78be",
+          "name": "Log in with valid credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('login body matches the schema (identity + two JWTs)', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('loginSchema'))));",
+                  "pm.test('the logged-in user is the configured test user', () => {",
+                  "    pm.expect(pm.response.json().username === pm.environment.get('username'), 'username matches the test user').to.be.true;",
+                  "});",
+                  "pm.test('access and refresh tokens are different', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.accessToken === body.refreshToken, 'tokens are identical').to.be.false;",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('accessToken', body.accessToken);",
+                  "pm.environment.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-post-auth-login-happy-valid-credentials** \u00b7 RULE-auth-login-returns-token-pair",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"expiresInMins\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "0202bd7b-f467-54e9-a12b-653312a204dc",
+          "name": "Token lifetime follows expiresInMins",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "// Decode the JWT payload (base64url) and compare exp - iat with the 5 minutes asked for.",
+                  "const cryptoJs = require('crypto-js');",
+                  "const part = pm.response.json().accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
+                  "const padded = part + '='.repeat((4 - (part.length % 4)) % 4);",
+                  "const claims = JSON.parse(cryptoJs.enc.Base64.parse(padded).toString(cryptoJs.enc.Utf8));",
+                  "pm.test('access token lives exactly 5 minutes (exp - iat = 300 s)', () => {",
+                  "    pm.expect(claims.exp - claims.iat).to.eql(300);",
+                  "});",
+                  "pm.test('token claims name the logged-in user', () => {",
+                  "    pm.expect(claims.username === pm.environment.get('username'), 'claims name the test user').to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-post-auth-login-boundary-expires-in-mins-honoured** \u00b7 RULE-auth-expiry-configurable",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"expiresInMins\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "5aa991b8-d1fa-5e49-86b9-b1ce5cf782a3",
+          "name": "Wrong password is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test(\"message is \\\"Invalid credentials\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Invalid credentials\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-post-auth-login-negative-wrong-password** \u00b7 RULE-auth-bad-credentials-generic-error",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"definitely-not-the-password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "a1dbce74-027a-5d2f-8368-3cd10b1e30ee",
+          "name": "Unknown user gets the same message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test(\"message is \\\"Invalid credentials\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Invalid credentials\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-post-auth-login-negative-unknown-user-same-message** \u00b7 RULE-auth-bad-credentials-generic-error",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"no_such_user_2026\",\n  \"password\": \"whatever\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "d0f37095-680e-59bb-892e-0c85bdae3d30",
+          "name": "Login requires username and password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test(\"message is \\\"Username and password required\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Username and password required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-post-auth-login-negative-missing-credentials** \u00b7 RULE-auth-login-requires-credentials",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "c9012338-63f1-55c5-a2fd-7e88a1e6f453",
+          "name": "Current user with a valid token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('identity fields are present and typed', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('currentUserSchema'))));",
+                  "pm.test('the token belongs to the test user', () => {",
+                  "    pm.expect(pm.response.json().username === pm.environment.get('username'), 'username matches the test user').to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**TC-get-auth-me-happy-valid-bearer** \u00b7 RULE-auth-bearer-required-on-auth-routes",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "486a2a15-f677-5c62-a555-77bc2fda5d36",
+          "name": "Current user without a token is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test(\"message is \\\"Access Token is required\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Access Token is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**TC-get-auth-me-auth-authz-missing-token** \u00b7 RULE-auth-bearer-required-on-auth-routes",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "403b0758-85fc-55c8-840a-5bfa8bad1c29",
+          "name": "Refresh issues a new token pair",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('body is exactly the two new tokens', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('refreshSchema'))));",
+                  "pm.environment.set('refreshedAccessToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "**TC-post-auth-refresh-happy-new-pair** \u00b7 RULE-auth-refresh-issues-new-pair",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\",\n  \"expiresInMins\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "9b00c728-cac1-5578-a09e-1e53011d8d19",
+          "name": "Refreshed token works",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('the refreshed token still identifies the test user', () => {",
+                  "    pm.expect(pm.response.json().username === pm.environment.get('username'), 'username matches the test user').to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**TC-get-auth-me-happy-refreshed-token-works** \u00b7 RULE-auth-refresh-issues-new-pair",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refreshedAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3f63c4d9-c9eb-5e45-8dae-8b802f1c9760",
+          "name": "Invalid refresh token is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403', () => pm.response.to.have.status(403));",
+                  "pm.test(\"message is \\\"Invalid refresh token\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Invalid refresh token\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "**TC-post-auth-refresh-negative-invalid-token** \u00b7 RULE-auth-refresh-token-required",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"not-a-token\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "652faecf-99eb-57ec-a0c4-ffe5bbd09f33",
+          "name": "Missing refresh token is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test(\"message is \\\"Refresh token required\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Refresh token required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "**TC-post-auth-refresh-negative-missing-token** \u00b7 RULE-auth-refresh-token-required",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "id": "3cba2b0e-3de4-52ad-9350-70e41cb28c0e",
+      "name": "02 Products",
+      "description": "The product list (paging, select, sort, validation) and single products.",
+      "item": [
+        {
+          "id": "16ce745c-7910-5dec-b3a7-961c9223e6d0",
+          "name": "Default list is the first page of 30",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('list matches the ProductList schema', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('productListSchema'))));",
+                  "const body = pm.response.json();",
+                  "pm.test('30 products, skip 0, limit 30', () => {",
+                  "    pm.expect(body.products).to.have.lengthOf(30);",
+                  "    pm.expect(body.skip).to.eql(0);",
+                  "    pm.expect(body.limit).to.eql(30);",
+                  "    pm.expect(body.total).to.be.at.least(30);",
+                  "});",
+                  "pm.environment.set('productTotal', body.total);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "**TC-get-products-happy-default-first-page** \u00b7 RULE-products-default-page-30",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "50e00beb-0305-510b-b718-d6ea45624077",
+          "name": "Limit and skip select the right window",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns products 11 to 15, in order', () => {",
+                  "    pm.expect(pm.response.json().products.map(p => p.id)).to.eql([11, 12, 13, 14, 15]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?limit=5&skip=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                },
+                {
+                  "key": "skip",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "**TC-get-products-happy-limit-skip-window** \u00b7 RULE-products-limit-skip-paginate",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "6c58beb0-1bd0-5b53-8ca9-38979352c4da",
+          "name": "limit=0 returns every product, each valid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('item count equals the catalogue total', () => {",
+                  "    pm.expect(body.products).to.have.lengthOf(Number(pm.environment.get('productTotal')));",
+                  "});",
+                  "pm.test('every product matches the Product schema', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('productListSchema'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?limit=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "**TC-get-products-boundary-limit-zero-all-valid** \u00b7 RULE-products-limit-skip-paginate",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "54ffbc74-25a7-5ddd-bd19-6d941b770c85",
+          "name": "Skip past the end returns an empty page",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('no products, total unchanged', () => {",
+                  "    pm.expect(body.products).to.eql([]);",
+                  "    pm.expect(body.total).to.eql(Number(pm.environment.get('productTotal')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?skip=1000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "1000"
+                }
+              ]
+            },
+            "description": "**TC-get-products-boundary-skip-beyond-total** \u00b7 RULE-products-limit-skip-paginate",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3ba46366-322e-56ef-8986-42e9629ac9dd",
+          "name": "Invalid limit is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test(\"message is \\\"Invalid 'limit' - should be a positive number\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Invalid 'limit' - should be a positive number\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?limit=-5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "-5"
+                }
+              ]
+            },
+            "description": "**TC-get-products-negative-invalid-limit** \u00b7 RULE-products-invalid-paging-rejected",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "369841e1-4aa5-5446-a375-b7f9144242e5",
+          "name": "Negative skip is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test(\"message is \\\"Invalid 'skip' - should be a positive number\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Invalid 'skip' - should be a positive number\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?skip=-1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "-1"
+                }
+              ]
+            },
+            "description": "**TC-get-products-negative-negative-skip** \u00b7 RULE-products-invalid-paging-rejected",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "38bb88cc-2ff9-5ac3-9b82-def4dd434448",
+          "name": "Select returns only the requested fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('each product has exactly id, title and price', () => {",
+                  "    pm.response.json().products.forEach(p => {",
+                  "        pm.expect(Object.keys(p).sort()).to.eql(['id', 'price', 'title']);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?select=title,price&limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "title,price"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "**TC-get-products-happy-select-fields** \u00b7 RULE-products-select-fields",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "d4caf4c6-0d6a-50e9-a65b-64420fb70cae",
+          "name": "Sort by price, descending",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('prices never increase across the whole catalogue', () => {",
+                  "    const prices = pm.response.json().products.map(p => p.price);",
+                  "    const outOfOrder = prices.filter((price, i) => i > 0 && price > prices[i - 1]);",
+                  "    pm.expect(outOfOrder, 'prices higher than the one before').to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?sortBy=price&order=desc&limit=0&select=price",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "price"
+                },
+                {
+                  "key": "order",
+                  "value": "desc"
+                },
+                {
+                  "key": "limit",
+                  "value": "0"
+                },
+                {
+                  "key": "select",
+                  "value": "price"
+                }
+              ]
+            },
+            "description": "**TC-get-products-happy-sort-by-price-desc** \u00b7 RULE-products-sort-by-order",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "d891dfae-4c7d-52eb-9863-66fedc863ca4",
+          "name": "Invalid sort order is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test(\"message is \\\"Invalid 'order' - should be either 'asc' or 'desc'\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Invalid 'order' - should be either 'asc' or 'desc'\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?sortBy=price&order=sideways",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "price"
+                },
+                {
+                  "key": "order",
+                  "value": "sideways"
+                }
+              ]
+            },
+            "description": "**TC-get-products-negative-invalid-sort-order** \u00b7 RULE-products-sort-by-order",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3434f699-3eaa-5aad-b03a-b00d0f0792a5",
+          "name": "Invalid date filter is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test(\"message is \\\"Invalid 'modifiedAfter' - should be a valid ISO 8601 date, e.g. 2025-01-01T00:00:00Z\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Invalid 'modifiedAfter' - should be a valid ISO 8601 date, e.g. 2025-01-01T00:00:00Z\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?modifiedAfter=not-a-date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "modifiedAfter",
+                  "value": "not-a-date"
+                }
+              ]
+            },
+            "description": "**TC-get-products-negative-invalid-modified-date** \u00b7 RULE-products-modified-date-filter",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3e5aa32e-4e50-5805-97c5-549a1e5d38f7",
+          "name": "Delay above 5000 ms is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test(\"message is \\\"Delay should be less than 5 seconds (5000 milliseconds)\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Delay should be less than 5 seconds (5000 milliseconds)\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?delay=6000&limit=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "delay",
+                  "value": "6000"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "**TC-get-products-boundary-delay-above-max** \u00b7 RULE-products-delay-max-5000",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "b04e57fe-3252-5327-9042-8c3258821cfc",
+          "name": "Get a product by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('it is product 1', () => pm.expect(pm.response.json().id).to.eql(1));",
+                  "pm.test('it matches the Product schema', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('productSchema'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "1"
+              ]
+            },
+            "description": "**TC-get-products-id-happy-existing-id** \u00b7 Endpoint inventory: GET /products/{id}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "13ceb6ec-77f5-59d3-a03c-dfd942eefe71",
+          "name": "Unknown product id returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test(\"message is \\\"Product with id '99999' not found\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Product with id '99999' not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/99999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "99999"
+              ]
+            },
+            "description": "**TC-get-products-id-negative-unknown-id** \u00b7 RULE-products-unknown-id-not-found",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "id": "01ca2790-7848-5ba2-aa00-191b4718478c",
+      "name": "03 Search and categories",
+      "description": "Product search and the category routes.",
+      "item": [
+        {
+          "id": "204dc6d0-b6d5-583a-a3c5-b6cf95708d5d",
+          "name": "Search results all match the term",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('results match the ProductList schema', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('productListSchema'))));",
+                  "pm.test('there are results', () => pm.expect(pm.response.json().total).to.be.above(0));",
+                  "const term = 'phone'.toLowerCase();",
+                  "const body = pm.response.json();",
+                  "pm.test(`every result mentions \"${term}\" in its title or description`, () => {",
+                  "    const misses = body.products.filter(p => !`${p.title} ${p.description}`.toLowerCase().includes(term));",
+                  "    pm.expect(misses.map(p => p.id), 'products that do not match').to.eql([]);",
+                  "});",
+                  "pm.environment.set('phoneTotal', body.total);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/search?q=phone&limit=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "phone"
+                },
+                {
+                  "key": "limit",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "**TC-get-products-search-happy-results-match-term** \u00b7 RULE-products-search-title-description",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "4df876e5-c696-564d-bee6-bfe24bf192ea",
+          "name": "Search ignores case",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('PHONE finds as many products as phone', () => {",
+                  "    pm.expect(pm.response.json().total).to.eql(Number(pm.environment.get('phoneTotal')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/search?q=PHONE&limit=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "PHONE"
+                },
+                {
+                  "key": "limit",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "**TC-get-products-search-happy-case-insensitive** \u00b7 RULE-products-search-title-description",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3c1dd866-6b70-52b6-95d3-5458638d951d",
+          "name": "Search with no match is empty, not an error",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('no products and a total of 0', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.products).to.eql([]);",
+                  "    pm.expect(body.total).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/search?q=zzqqxx",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "zzqqxx"
+                }
+              ]
+            },
+            "description": "**TC-get-products-search-negative-no-match** \u00b7 RULE-products-search-title-description",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "ddb188e9-300f-505c-b113-0332296afbb0",
+          "name": "Categories list has slug, name and url",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('each category is {slug, name, url}', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('categoriesSchema'))));",
+                  "pm.environment.set('categorySlugs', JSON.stringify(pm.response.json().map(c => c.slug)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "categories"
+              ]
+            },
+            "description": "**TC-get-products-categories-contract-schema-list** \u00b7 RULE-products-categories-lists-agree",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "7ab33407-f8a8-5f2a-8129-1cfd44477819",
+          "name": "Category slug list agrees with categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('same slugs, in the same order, as /products/categories', () => {",
+                  "    pm.expect(pm.response.json()).to.eql(JSON.parse(pm.environment.get('categorySlugs')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/category-list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "category-list"
+              ]
+            },
+            "description": "**TC-get-products-category-list-contract-schema-agrees** \u00b7 RULE-products-categories-lists-agree",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "a31f5da0-c7b1-59d9-907a-16d4f78874a3",
+          "name": "Category filter returns only that category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('there are smartphones', () => pm.expect(body.total).to.be.above(0));",
+                  "pm.test('every product is in the smartphones category', () => {",
+                  "    pm.expect([...new Set(body.products.map(p => p.category))]).to.eql(['smartphones']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/category/smartphones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "category",
+                "smartphones"
+              ]
+            },
+            "description": "**TC-get-products-category-slug-happy-filter** \u00b7 RULE-products-category-filter",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "2ba1139a-62f6-572d-9d97-c29a3336a2f3",
+          "name": "Unknown category is empty, not 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('no products and a total of 0', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.products).to.eql([]);",
+                  "    pm.expect(body.total).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/category/no-such-category",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "category",
+                "no-such-category"
+              ]
+            },
+            "description": "**TC-get-products-category-slug-negative-unknown** \u00b7 RULE-products-category-filter",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "id": "97b854d1-1199-53f7-82db-e66771fa595c",
+      "name": "04 Product writes",
+      "description": "Add, update, patch and delete. DummyJSON simulates writes and never saves them, so the read-back requests prove that too.",
+      "item": [
+        {
+          "id": "5fa9cee2-6a8e-5252-a7a4-80b6497272f3",
+          "name": "Add a product",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('newTitle', `Postman test product ${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('it gets a new integer id', () => pm.expect(body.id).to.be.a('number'));",
+                  "pm.test('every field sent is echoed back', () => {",
+                  "    pm.expect(body.title).to.eql(pm.variables.get('newTitle'));",
+                  "    pm.expect(body.price).to.eql(19.99);",
+                  "    pm.expect(body.category).to.eql('groceries');",
+                  "});",
+                  "pm.environment.set('addedProductId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "add"
+              ]
+            },
+            "description": "**TC-post-products-add-happy-echoes-with-new-id** \u00b7 RULE-products-writes-simulated",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"{{newTitle}}\",\n  \"price\": 19.99,\n  \"category\": \"groceries\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "f55531b4-245d-5177-9b11-7f193a83b832",
+          "name": "Added product is not saved",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('reading it back says not found (writes are simulated)', () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(`Product with id '${pm.environment.get('addedProductId')}' not found`);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{addedProductId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{addedProductId}}"
+              ]
+            },
+            "description": "**TC-post-products-add-happy-not-persisted** \u00b7 RULE-products-writes-simulated",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "fc7abf8f-28c3-56a5-83dd-5d8b6fc6c5de",
+          "name": "Update a product's title",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Read the product's current price first, so the test can prove PUT keeps it.",
+                  "pm.sendRequest({",
+                  "    url: pm.environment.get('baseUrl') + '/products/2?select=price',",
+                  "    header: { 'User-Agent': 'dummyjson-postman-newman' }",
+                  "}, (err, res) => {",
+                  "    pm.environment.set('originalPrice', err ? '' : res.json().price);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('the new title is returned', () => pm.expect(body.title).to.eql('Updated by Postman'));",
+                  "pm.test('fields not sent keep their values', () => {",
+                  "    pm.expect(body.price).to.eql(Number(pm.environment.get('originalPrice')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "2"
+              ]
+            },
+            "description": "**TC-put-products-id-happy-applies-change-keeps-rest** \u00b7 RULE-products-writes-simulated",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated by Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "5bc9ee1a-acc0-5093-b118-2328de995f4e",
+          "name": "Patch a product's price",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('the new price is returned', () => pm.expect(pm.response.json().price).to.eql(1.23));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "3"
+              ]
+            },
+            "description": "**TC-patch-products-id-happy-change-returned** \u00b7 RULE-products-writes-simulated",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 1.23\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "307054e8-01a3-5687-9ba3-aff6e1c79625",
+          "name": "Patched product is unchanged on read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('the price was not really changed', () => pm.expect(pm.response.json().price).to.not.eql(1.23));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "3"
+              ]
+            },
+            "description": "**TC-patch-products-id-happy-not-persisted** \u00b7 RULE-products-writes-simulated",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "921d7346-88b9-564e-8f40-970800bc7b26",
+          "name": "Delete a product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('it is product 1, marked as deleted', () => {",
+                  "    pm.expect(body.id).to.eql(1);",
+                  "    pm.expect(body.isDeleted).to.eql(true);",
+                  "});",
+                  "pm.test('deletedOn is an ISO 8601 time', () => {",
+                  "    pm.expect(body.deletedOn).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$/);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "1"
+              ]
+            },
+            "description": "**TC-delete-products-id-happy-delete-marker** \u00b7 RULE-products-writes-simulated",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "fb89d524-8d72-5f66-8485-bc75c55f25d8",
+          "name": "Update an unknown product returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test(\"message is \\\"Product with id '99999' not found\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Product with id '99999' not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/99999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "99999"
+              ]
+            },
+            "description": "**TC-put-products-id-negative-unknown-id** \u00b7 RULE-products-unknown-id-not-found",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Nobody home\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "id": "af62735d-0206-5a65-aefe-6d13152eb736",
+      "name": "05 Protected routes",
+      "description": "The /auth/ mirror of the product routes needs a Bearer token. Logs in first, so it can run on its own.",
+      "item": [
+        {
+          "id": "9c3472a0-78d2-51fd-a945-a5d9b68ce67a",
+          "name": "Setup: log in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('login body matches the schema', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('loginSchema'))));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('accessToken', body.accessToken);",
+                  "pm.environment.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-setup-protected-login** \u00b7 RULE-auth-login-returns-token-pair",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"expiresInMins\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "eef84fb3-9cba-5898-8916-cffdfb86dba9",
+          "name": "Protected product list without a token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test(\"message is \\\"Access Token is required\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Access Token is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/products?limit=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "3"
+                }
+              ]
+            },
+            "description": "**TC-get-auth-products-auth-authz-no-token** \u00b7 RULE-auth-bearer-required-on-auth-routes",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "692d4fc2-df40-52bf-8e1d-d02952184efa",
+          "name": "Protected product list with a token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('3 products are returned', () => pm.expect(pm.response.json().products).to.have.lengthOf(3));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/products?limit=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "3"
+                }
+              ]
+            },
+            "description": "**TC-get-auth-products-happy-with-token** \u00b7 RULE-auth-bearer-required-on-auth-routes",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "a37991ac-c08a-5d3e-9d82-f0f0a3d091c8",
+          "name": "Protected add with a token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('the title is echoed', () => pm.expect(pm.response.json().title).to.eql('Added with a token'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/products/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "products",
+                "add"
+              ]
+            },
+            "description": "**TC-post-auth-products-add-happy-with-token** \u00b7 RULE-auth-bearer-required-on-auth-routes",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Added with a token\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "c3ee09a7-d2f2-51b2-9474-613a9d4305a5",
+          "name": "Protected delete without a token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test(\"message is \\\"Access Token is required\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Access Token is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/products/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "products",
+                "1"
+              ]
+            },
+            "description": "**TC-delete-auth-products-id-auth-authz-no-token** \u00b7 RULE-auth-bearer-required-on-auth-routes",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "id": "e9c595b8-49f9-51ac-bdef-d96fa8fd72a6",
+      "name": "06 Data-driven search",
+      "description": "One request, run once per row of data/search-terms.csv: `scripts/run-newman.sh data`.",
+      "item": [
+        {
+          "id": "e4dd33b4-6229-5acb-8af8-dac2f12d0467",
+          "name": "Search by term",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const term = String(pm.iterationData.get('term')).toLowerCase();",
+                  "const expectMatches = pm.iterationData.get('expectMatches') === 'yes';",
+                  "const body = pm.response.json();",
+                  "if (expectMatches) {",
+                  "    pm.test(`\"${term}\" finds products`, () => pm.expect(body.total).to.be.above(0));",
+                  "    pm.test(`every \"${term}\" result mentions it in its title or description`, () => {",
+                  "        const misses = body.products.filter(p => !`${p.title} ${p.description}`.toLowerCase().includes(term));",
+                  "        pm.expect(misses.map(p => p.id), 'products that do not match').to.eql([]);",
+                  "    });",
+                  "} else {",
+                  "    pm.test(`\"${term}\" finds nothing`, () => pm.expect(body.total).to.eql(0));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/search?q={{term}}&limit=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{term}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "**TC-get-products-search-data-driven** \u00b7 RULE-products-search-title-description",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "id": "ef850fa6-cf82-5470-a6c3-2be2435d882e",
+      "name": "99 Known defects",
+      "description": "The 13 defects the companion pytest suite pins as strict xfails. Each request asserts what the API should do. Run with `scripts/run-newman.sh defects`; CI runs it without failing the build.",
+      "item": [
+        {
+          "id": "87b14fe0-890f-5028-9edd-e8e71930b729",
+          "name": "Setup: log in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('login body matches the schema', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('loginSchema'))));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('accessToken', body.accessToken);",
+                  "pm.environment.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-setup-defects-login** \u00b7 RULE-auth-login-returns-token-pair",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"expiresInMins\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3ba68fe6-e5ae-5d55-8453-59f505a78375",
+          "name": "D-01 Current user hides sensitive fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('no password, SSN, EIN, bank or crypto data in the response', () => {",
+                  "    const exposed = ['password', 'ssn', 'ein', 'bank', 'crypto'].filter(k => k in pm.response.json());",
+                  "    pm.expect(exposed, 'sensitive fields returned').to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**TC-get-auth-me-contract-schema-no-sensitive-fields** \u00b7 RULE-auth-me-hides-sensitive-fields (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "4f743a25-521d-52a9-bfc2-026efe8a039d",
+          "name": "D-02 Refresh token is not accepted as an access token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**TC-get-auth-me-auth-authz-refresh-token-as-access** \u00b7 RULE-auth-token-types-not-interchangeable (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refreshToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "d3cc2485-0fe9-5e3c-9eec-fe8d8487fcf0",
+          "name": "D-03 Access token is not accepted as a refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "**TC-post-auth-refresh-auth-authz-access-token-as-refresh** \u00b7 RULE-auth-token-types-not-interchangeable (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{accessToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "7b7ca409-8917-51f2-8008-ff0ce49436f2",
+          "name": "D-04 A used refresh token can't be reused",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Use the refresh token once, so the request below re-uses an already-used token.",
+                  "pm.sendRequest({",
+                  "    url: pm.environment.get('baseUrl') + '/auth/refresh',",
+                  "    method: 'POST',",
+                  "    header: { 'Content-Type': 'application/json', 'User-Agent': 'dummyjson-postman-newman' },",
+                  "    body: { mode: 'raw', raw: JSON.stringify({ refreshToken: pm.environment.get('refreshToken'), expiresInMins: 30 }) }",
+                  "}, () => {});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "**TC-post-auth-refresh-auth-authz-used-token-reused** \u00b7 RULE-auth-refresh-token-single-use (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "dc855c14-12db-5106-afe1-a4a2af0cba51",
+          "name": "D-05 Token without the Bearer prefix is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**TC-get-auth-me-auth-authz-missing-bearer-prefix** \u00b7 RULE-auth-invalid-token-rejected (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "d2beb124-0dcb-59c6-89ce-dedb56653587",
+          "name": "D-06 Malformed token is rejected with 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**TC-get-auth-me-auth-authz-malformed-token** \u00b7 RULE-auth-invalid-token-rejected (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "abc.def.ghi",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "04d56571-5927-5c7a-be94-0cef31796096",
+          "name": "D-07 Forged signature is rejected with 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Change one character of the real token's signature, so the claims stay valid but the signature doesn't.",
+                  "const [head, claims, sig] = pm.environment.get('accessToken').split('.');",
+                  "const swapped = (sig[0] === 'A' ? 'B' : 'A') + sig.slice(1);",
+                  "pm.variables.set('forgedToken', [head, claims, swapped].join('.'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**TC-get-auth-me-auth-authz-forged-signature** \u00b7 RULE-auth-invalid-token-rejected (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{forgedToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "5b4a65d0-a2cb-5852-b3fa-08cdd550d13c",
+          "name": "D-08 Basic scheme is rejected with 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Basic {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**TC-get-auth-me-auth-authz-wrong-scheme** \u00b7 RULE-auth-invalid-token-rejected (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "6acfc8db-7790-507c-a599-ec25f8fb02d6",
+          "name": "D-09 Lifetime above the maximum is a 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-post-auth-login-boundary-expires-above-max** \u00b7 RULE-auth-expiry-configurable\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"expiresInMins\": 43201\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "15217e36-217d-5e5c-8794-17b0af8d98e3",
+          "name": "D-10 Negative lifetime is a 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-post-auth-login-boundary-expires-negative** \u00b7 RULE-auth-expiry-configurable\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"expiresInMins\": -1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "d670cd08-b02b-5eea-86c1-9eab7cf12502",
+          "name": "D-11 Add product with an empty body is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "add"
+              ]
+            },
+            "description": "**TC-post-products-add-negative-empty-body** \u00b7 RULE-products-add-validates-body (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "d6d6ad8c-bac4-5a07-bfe3-97326d9b52a5",
+          "name": "D-12 Add product with a text price is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "add"
+              ]
+            },
+            "description": "**TC-post-products-add-negative-wrong-price-type** \u00b7 RULE-products-add-validates-body (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Free thing\",\n  \"price\": \"free\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "f75ae19b-9587-55f4-b494-92726819860c",
+          "name": "D-13 Update returns the full product shape",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('the response has the full Product shape, like GET', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('productSchema'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "2"
+              ]
+            },
+            "description": "**TC-put-products-id-contract-schema-update-shape** \u00b7 RULE-products-update-response-shape (inferred)\n\nAsserts the correct behaviour; expected to fail until DummyJSON fixes it. Not part of the gating run.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Shape check\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
