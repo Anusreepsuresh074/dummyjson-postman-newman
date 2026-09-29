@@ -6,6 +6,10 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="${1:-$root/reports}"
+if [[ ! -e "$target" ]]; then
+  echo "Nothing to check: $target does not exist" >&2
+  exit 2
+fi
 
 if [[ -f "$root/.env" ]]; then
   set -a

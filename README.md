@@ -5,10 +5,10 @@
 
 A **Postman** collection for the [DummyJSON](https://dummyjson.com) e-commerce API, run from the command line and in CI with **Newman**. It covers the JWT auth flow (login, current user, refresh) and the products resource: paging, field selection, sorting, validation, search, categories and simulated writes.
 
-**58 requests in 7 folders, built from a reviewed 58-row test case matrix.** Every request asserts its status, the body facts that matter, and a JSON Schema where the shape is known; shared checks (response time, JSON content type, the standard error body) run on every request from one collection-level script. Tokens are chained through variables, one folder is data-driven from a CSV file, and 13 real API defects are kept visible in their own folder without breaking the build.
+**58 requests in 7 folders, built from a 58-row test case matrix that was audited against every endpoint and business rule before any request was written.** Every request asserts its status, the body facts that matter, and a JSON Schema where the shape is known; shared checks (response time, JSON content type, the standard error body) run on every request from one collection-level script. Tokens are chained through variables, one folder is data-driven from a CSV file, and 13 real API defects are kept visible in their own folder without breaking the build.
 
 ```
-main run      44 requests, 201 assertions, 0 failed   (~25 s)
+main run      43 requests (+1 sent by a pre-request script), 201 assertions, 0 failed   (~25 s)
 data run       6 iterations,  29 assertions, 0 failed
 defects run   13 of 13 known defects still present (expected)
 ```
@@ -19,7 +19,7 @@ This is the Postman companion to my [DummyJSON API test automation in Python + p
 
 | Skill | Where to see it |
 |---|---|
-| **Test design before tooling:** a 58-row matrix, each row traced to a business rule, reviewed before any request was built | [`context/test-case-matrix.md`](context/test-case-matrix.md), [`context/coverage-audit-report.md`](context/coverage-audit-report.md) |
+| **Test design before tooling:** a 58-row matrix, each row traced to a business rule, audited with `coverage-audit` and approved before any request was built | [`context/test-case-matrix.md`](context/test-case-matrix.md), [`context/coverage-audit-report.md`](context/coverage-audit-report.md) |
 | **Postman scripting:** `pm.test` assertions, `pm.response.to.have.jsonSchema`, pre-request scripts, `pm.sendRequest`, decoding a JWT with `crypto-js` | the collection's test and pre-request scripts |
 | **Chaining:** the login token, the refreshed token, a new product id and category slugs flow from one request to the next through variables | `01 Auth`, `03 Search and categories`, `04 Product writes` |
 | **Shared rules in one place:** collection-level scripts and JSON Schemas stored as collection variables | the collection's own Scripts and Variables tabs |
@@ -62,26 +62,33 @@ The same 13 defects the companion pytest suite pins as strict xfails, re-confirm
 | D-12 | Adding a product with `price: "free"` returns `201` | `400` |
 | D-13 | `PUT` returns 11 of the product's 22 fields | the full product |
 
+## Design choices worth asking about
+
+- **One environment file.** DummyJSON has a single public host, so there is no dev/staging split to model; adding one would be padding. A second environment would be one more file in `environments/`.
+- **Strict schemas on purpose.** The login, refresh, product and category schemas forbid undocumented fields (`additionalProperties: false`), so a silently added or renamed field fails the run. That is a contract choice: a real API change is reviewed, not absorbed.
+- **Auth declared on each request.** Every request states its auth (Bearer, or none for negative cases) instead of inheriting it, because the cookie finding below showed how inherited or hidden authentication can make a "no token" test pass for the wrong reason.
+- **Variable scopes.** `username`, `password` and the three tokens live in the environment (the tokens and password as `secret`); values passed between requests during a run (totals, ids, slugs) are collection variables; per-request values are local.
+
 ## Found while building it
 
 - **Login cookies were authenticating "no token" requests.** DummyJSON sets the tokens as cookies at login, and Newman keeps a cookie jar like a browser, so requests meant to have no token got `200`. The collection turns the cookie jar off (`protocolProfileBehavior.disableCookies`), so each request is authenticated only by what it declares.
-- **The first request of a run sometimes failed with `AggregateError`.** `dummyjson.com` resolves to IPv6 and IPv4 addresses, and Node 20 gives each connection attempt only 250 ms. The run script allows 2 s (`--network-family-autoselection-attempt-timeout=2000`); 5 consecutive runs passed afterwards.
+- **The first request of a run sometimes failed with `AggregateError`.** `dummyjson.com` resolves to IPv6 and IPv4 addresses, and Node 20 gives each connection attempt only 250 ms. The run script tries IPv4 first and allows each attempt 2 s (`--dns-result-order=ipv4first --network-family-autoselection-attempt-timeout=2000`); every run since has passed.
 - **Newman's JUnit output leaves out script errors**, so the verdict always comes from Newman's exit code, not from counting JUnit failures.
 - **DummyJSON's Cloudflare refuses some default script user-agents** (error 1010), so every request sends an explicit `User-Agent`.
 
 ## Running it
 
-Requires Node.js 20 and npm.
+Requires Node.js 20.19 or later (CI uses 22 LTS, from `.nvmrc`), npm, and Python 3.11+ for the two report scripts.
 
 ```bash
 npm ci                               # Newman + the htmlextra reporter, pinned by package-lock.json
 cp .env.example .env                 # fill in a published DummyJSON test user (see dummyjson.com/users)
 
-scripts/run-newman.sh main           # the gating run: every functional folder
-scripts/run-newman.sh data           # the data-driven search, one iteration per CSV row
-scripts/run-newman.sh defects        # the known defects (expected to fail)
+npm test                             # the gating run: every functional folder (scripts/run-newman.sh main)
+npm run test:data                    # the data-driven search, one iteration per CSV row
+npm run test:defects                 # the known defects (expected to fail)
 
-scripts/check-secrets.sh             # no password or token in any report
+npm run check-secrets                # no password or token in any report
 python3 scripts/summarize.py reports/<run>/     # summary.md for one run
 python3 scripts/build-site.py        # site/: the latest reports behind one index page
 ```
@@ -92,13 +99,13 @@ Each run writes `reports/<UTC time>-<mode>/` with `report.html` (htmlextra), `ju
 
 ## CI
 
-[`.github/workflows/newman.yml`](.github/workflows/newman.yml) runs on every push and pull request, on demand, and nightly at 02:30 UTC:
+[`.github/workflows/newman.yml`](.github/workflows/newman.yml) runs on pushes to `main`, pull requests, on demand, and nightly at 02:30 UTC (GitHub pauses scheduled runs after 60 days without repository activity):
 
 1. **Static checks:** `npm ci`; every collection, environment and CSV file parses; shellcheck and ruff on the scripts.
 2. **API tests:** the main and data-driven runs gate the build; the known-defects run is reported but never fails it. Each run's summary is added to the job summary, reports are scanned for secrets, and everything is uploaded as an artifact.
 3. **Publish:** the latest HTML reports go to [GitHub Pages](https://anusreepsuresh074.github.io/dummyjson-postman-newman/) from `main` and manual runs.
 
-Repository secrets needed: `AUTH_USERNAME`, `AUTH_PASSWORD`. Without them (for example on a fork), the live tests are skipped with a warning.
+Repository secrets needed: `AUTH_USERNAME`, `AUTH_PASSWORD`. Without them the run fails with a clear error, so a green badge always means the tests really ran; only pull requests from forks, which never get secrets, skip the live tests with a warning.
 
 ## Project structure
 

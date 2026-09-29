@@ -79,6 +79,36 @@
       "key": "categoriesSchema",
       "value": "{\"type\": \"array\", \"minItems\": 1, \"items\": {\"type\": \"object\", \"properties\": {\"slug\": {\"type\": \"string\"}, \"name\": {\"type\": \"string\"}, \"url\": {\"type\": \"string\"}}, \"required\": [\"slug\", \"name\", \"url\"], \"additionalProperties\": false}}",
       "type": "string"
+    },
+    {
+      "key": "productTotal",
+      "value": "",
+      "type": "string",
+      "description": "Set during a run (chaining); empty in the file."
+    },
+    {
+      "key": "phoneTotal",
+      "value": "",
+      "type": "string",
+      "description": "Set during a run (chaining); empty in the file."
+    },
+    {
+      "key": "categorySlugs",
+      "value": "",
+      "type": "string",
+      "description": "Set during a run (chaining); empty in the file."
+    },
+    {
+      "key": "addedProductId",
+      "value": "",
+      "type": "string",
+      "description": "Set during a run (chaining); empty in the file."
+    },
+    {
+      "key": "originalPrice",
+      "value": "",
+      "type": "string",
+      "description": "Set during a run (chaining); empty in the file."
     }
   ],
   "item": [
@@ -99,6 +129,7 @@
                   "pm.test('status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('login body matches the schema (identity + two JWTs)', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('loginSchema'))));",
                   "pm.test('the logged-in user is the configured test user', () => {",
+                  "    // A true/false match on purpose: eql would print the test user's name in a failure message.",
                   "    pm.expect(pm.response.json().username === pm.environment.get('username'), 'username matches the test user').to.be.true;",
                   "});",
                   "pm.test('access and refresh tokens are different', () => {",
@@ -165,6 +196,7 @@
                   "    pm.expect(claims.exp - claims.iat).to.eql(300);",
                   "});",
                   "pm.test('token claims name the logged-in user', () => {",
+                  "    // A true/false match on purpose: eql would print the test user's name in a failure message.",
                   "    pm.expect(claims.username === pm.environment.get('username'), 'claims name the test user').to.be.true;",
                   "});"
                 ]
@@ -370,6 +402,7 @@
                   "pm.test('status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('identity fields are present and typed', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('currentUserSchema'))));",
                   "pm.test('the token belongs to the test user', () => {",
+                  "    // A true/false match on purpose: eql would print the test user's name in a failure message.",
                   "    pm.expect(pm.response.json().username === pm.environment.get('username'), 'username matches the test user').to.be.true;",
                   "});"
                 ]
@@ -501,6 +534,7 @@
                 "exec": [
                   "pm.test('status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('the refreshed token still identifies the test user', () => {",
+                  "    // A true/false match on purpose: eql would print the test user's name in a failure message.",
                   "    pm.expect(pm.response.json().username === pm.environment.get('username'), 'username matches the test user').to.be.true;",
                   "});"
                 ]
@@ -661,7 +695,7 @@
                   "    pm.expect(body.limit).to.eql(30);",
                   "    pm.expect(body.total).to.be.at.least(30);",
                   "});",
-                  "pm.environment.set('productTotal', body.total);"
+                  "pm.collectionVariables.set('productTotal', body.total);"
                 ]
               }
             }
@@ -743,7 +777,8 @@
                   "pm.test('status is 200', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
                   "pm.test('item count equals the catalogue total', () => {",
-                  "    pm.expect(body.products).to.have.lengthOf(Number(pm.environment.get('productTotal')));",
+                  "    pm.expect(pm.collectionVariables.get('productTotal'), 'productTotal (run folder 02 in order)').to.exist;",
+                  "    pm.expect(body.products).to.have.lengthOf(Number(pm.collectionVariables.get('productTotal')));",
                   "});",
                   "pm.test('every product matches the Product schema', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('productListSchema'))));"
                 ]
@@ -788,7 +823,7 @@
                   "const body = pm.response.json();",
                   "pm.test('no products, total unchanged', () => {",
                   "    pm.expect(body.products).to.eql([]);",
-                  "    pm.expect(body.total).to.eql(Number(pm.environment.get('productTotal')));",
+                  "    pm.expect(body.total).to.eql(Number(pm.collectionVariables.get('productTotal')));",
                   "});"
                 ]
               }
@@ -1239,7 +1274,7 @@
                   "    const misses = body.products.filter(p => !`${p.title} ${p.description}`.toLowerCase().includes(term));",
                   "    pm.expect(misses.map(p => p.id), 'products that do not match').to.eql([]);",
                   "});",
-                  "pm.environment.set('phoneTotal', body.total);"
+                  "pm.collectionVariables.set('phoneTotal', body.total);"
                 ]
               }
             }
@@ -1285,7 +1320,8 @@
                 "exec": [
                   "pm.test('status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('PHONE finds as many products as phone', () => {",
-                  "    pm.expect(pm.response.json().total).to.eql(Number(pm.environment.get('phoneTotal')));",
+                  "    pm.expect(pm.collectionVariables.get('phoneTotal'), 'phoneTotal (run folder 03 in order)').to.exist;",
+                  "    pm.expect(pm.response.json().total).to.eql(Number(pm.collectionVariables.get('phoneTotal')));",
                   "});"
                 ]
               }
@@ -1377,7 +1413,7 @@
                 "exec": [
                   "pm.test('status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('each category is {slug, name, url}', () => pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('categoriesSchema'))));",
-                  "pm.environment.set('categorySlugs', JSON.stringify(pm.response.json().map(c => c.slug)));"
+                  "pm.collectionVariables.set('categorySlugs', JSON.stringify(pm.response.json().map(c => c.slug)));"
                 ]
               }
             }
@@ -1413,7 +1449,7 @@
                 "exec": [
                   "pm.test('status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('same slugs, in the same order, as /products/categories', () => {",
-                  "    pm.expect(pm.response.json()).to.eql(JSON.parse(pm.environment.get('categorySlugs')));",
+                  "    pm.expect(pm.response.json()).to.eql(JSON.parse(pm.collectionVariables.get('categorySlugs')));",
                   "});"
                 ]
               }
@@ -1552,7 +1588,7 @@
                   "    pm.expect(body.price).to.eql(19.99);",
                   "    pm.expect(body.category).to.eql('groceries');",
                   "});",
-                  "pm.environment.set('addedProductId', body.id);"
+                  "pm.collectionVariables.set('addedProductId', body.id);"
                 ]
               }
             }
@@ -1602,7 +1638,7 @@
                 "exec": [
                   "pm.test('status is 404', () => pm.response.to.have.status(404));",
                   "pm.test('reading it back says not found (writes are simulated)', () => {",
-                  "    pm.expect(pm.response.json().message).to.eql(`Product with id '${pm.environment.get('addedProductId')}' not found`);",
+                  "    pm.expect(pm.response.json().message).to.eql(`Product with id '${pm.collectionVariables.get('addedProductId')}' not found`);",
                   "});"
                 ]
               }
@@ -1642,7 +1678,10 @@
                   "    url: pm.environment.get('baseUrl') + '/products/2?select=price',",
                   "    header: { 'User-Agent': 'dummyjson-postman-newman' }",
                   "}, (err, res) => {",
-                  "    pm.environment.set('originalPrice', err ? '' : res.json().price);",
+                  "    if (err || res.code !== 200) {",
+                  "        throw new Error(`could not read product 2's original price: ${err || res.code}`);",
+                  "    }",
+                  "    pm.collectionVariables.set('originalPrice', res.json().price);",
                   "});"
                 ]
               }
@@ -1656,7 +1695,7 @@
                   "const body = pm.response.json();",
                   "pm.test('the new title is returned', () => pm.expect(body.title).to.eql('Updated by Postman'));",
                   "pm.test('fields not sent keep their values', () => {",
-                  "    pm.expect(body.price).to.eql(Number(pm.environment.get('originalPrice')));",
+                  "    pm.expect(body.price).to.eql(Number(pm.collectionVariables.get('originalPrice')));",
                   "});"
                 ]
               }

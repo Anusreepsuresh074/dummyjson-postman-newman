@@ -21,7 +21,7 @@ def cli_totals(cli_text):
         if match:
             totals[row] = (int(match.group(1)), int(match.group(2)))
     average = re.search(r"average response time: (\d+)ms", cli_text)
-    duration = re.search(r"total run duration: ([\d.]+m?s)", cli_text)
+    duration = re.search(r"total run duration: ([\dm .]+s)", cli_text)
     return totals, average.group(1) if average else "?", duration.group(1) if duration else "?"
 
 
@@ -32,6 +32,8 @@ def is_defect(suite_name):
 def failed_requests(junit_path):
     """({request name: [failure messages]} for requests with a failed assertion, number of defect requests)."""
     failures = {}
+    if not junit_path.exists():  # Newman stopped before writing it
+        return failures, 0
     suites = list(ET.parse(junit_path).getroot().iter("testsuite"))
     for suite in suites:
         for case in suite.iter("testcase"):

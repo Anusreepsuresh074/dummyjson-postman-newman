@@ -50,9 +50,10 @@ esac
 out="$root/reports/$(date -u +%Y%m%dT%H%M%SZ)-$mode"
 mkdir -p "$out"
 
-# DummyJSON resolves to IPv6 and IPv4 addresses. Node 20 tries both but gives each connection
-# attempt only 250 ms, so a slow first connection can fail with AggregateError. Allow 2 s.
-export NODE_OPTIONS="${NODE_OPTIONS:-} --network-family-autoselection-attempt-timeout=2000"
+# DummyJSON resolves to IPv6 and IPv4 addresses. Node (20+) tries both but gives each connection
+# attempt only 250 ms, so a slow first connection can fail with AggregateError. Try IPv4 first
+# (many networks have no working IPv6 route) and allow each attempt 2 s.
+export NODE_OPTIONS="${NODE_OPTIONS:-} --dns-result-order=ipv4first --network-family-autoselection-attempt-timeout=2000"
 
 set +e
 npx --no-install newman run "$collection" \

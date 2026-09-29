@@ -6,5 +6,15 @@
   "devDependencies": {
     "newman": "^6.2.2",
     "newman-reporter-htmlextra": "^1.23.1"
-  }
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "test": "scripts/run-newman.sh main",
+    "test:data": "scripts/run-newman.sh data",
+    "test:defects": "scripts/run-newman.sh defects",
+    "check-secrets": "scripts/check-secrets.sh"
+  },
+  "license": "MIT"
 }

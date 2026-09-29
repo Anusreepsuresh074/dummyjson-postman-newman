@@ -1,7 +1,7 @@
 name: API tests (Newman)
 
 # Built by postman-ci-integration.
-#   every push and pull request, a manual run, and nightly at 02:30 UTC
+#   pushes to main, pull requests, a manual run, and nightly at 02:30 UTC
 #   1. static checks: npm ci, every collection / environment / data file parses, shellcheck, ruff (no requests sent)
 #   2. API tests: the main folders and the data-driven search gate the build; the known-defects folder runs
 #      too but never fails it; every report is scanned for leaked secrets
@@ -14,12 +14,14 @@ name: API tests (Newman)
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
   schedule:
     - cron: "30 2 * * *"
 
-# One run at a time against a shared public API (100 requests per 10 s per IP).
+# One run at a time against a shared public API (100 requests per 10 s per IP). A new run waits;
+# GitHub keeps only the newest waiting run, which is fine: it tests the latest code.
 concurrency:
   group: newman-api-tests
   cancel-in-progress: false
@@ -34,7 +36,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - name: Collection, environment and data files parse
@@ -62,6 +64,8 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+    outputs:
+      ran: ${{ steps.secrets.outputs.available }}
     env:
       AUTH_USERNAME: ${{ secrets.AUTH_USERNAME }}
       AUTH_PASSWORD: ${{ secrets.AUTH_PASSWORD }}
@@ -69,7 +73,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
 
@@ -78,9 +82,13 @@ jobs:
         run: |
           if [ -n "$AUTH_USERNAME" ] && [ -n "$AUTH_PASSWORD" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::AUTH_USERNAME / AUTH_PASSWORD are not set (for example on a fork). Skipping the live API tests."
+          elif [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+            # Pull requests from forks never get repository secrets: skip, don't fail.
+            echo "::warning::No test user secrets on a fork pull request. Skipping the live API tests."
             echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::AUTH_USERNAME / AUTH_PASSWORD are not set. Add them under Settings -> Secrets and variables -> Actions."
+            exit 1
           fi
 
       - name: Main folders (gating)
@@ -133,7 +141,7 @@ jobs:
   publish:
     name: Publish reports
     needs: api-tests
-    if: always() && needs.api-tests.result != 'skipped' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.api-tests.outputs.ran == 'true' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write

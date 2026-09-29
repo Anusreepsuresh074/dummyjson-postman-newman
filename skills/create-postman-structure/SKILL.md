@@ -65,10 +65,12 @@ Explain each phase (what, why, where, how it connects), then create it:
    it; `.gitignore` for `node_modules/`, `reports/`, `.env` and `*.local.json`.
 3. **Tooling:** `package.json`, then `npm install --save-dev newman
    newman-reporter-htmlextra`; confirm with `npx newman --version`.
-4. **Run script:** `scripts/run-newman.sh <folder|all>` reads credentials from
+4. **Run script:** `scripts/run-newman.sh <mode>`, one mode per kind of run
+   (for example `main`, `data`, `defects`), reads credentials from
    environment variables, passes them with `--env-var`, writes CLI, HTML
-   (htmlextra) and JUnit output under `reports/<timestamp>/`, and exits
-   non-zero on any failed assertion.
+   (htmlextra) and JUnit output plus Newman's exit code under
+   `reports/<UTC time>-<mode>/`, and exits with Newman's code. Expose the
+   modes as npm scripts (`npm test` for the gating run).
 5. **Secret check:** `scripts/check-secrets.sh <report dir>` greps the reports
    for the password value and for anything shaped like a JWT, and fails if it
    finds one.

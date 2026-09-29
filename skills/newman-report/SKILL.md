@@ -34,11 +34,12 @@ already on disk; its job is to find it and present it.
 ## Steps
 
 1. Find the latest `reports/<timestamp>/` folder (or the one named).
-2. Read the totals: requests, assertions, failed assertions, average and
-   maximum response time, per folder.
-3. Write `reports/<timestamp>/summary.md` with a one-line verdict first
-   (PASS or FAIL), a totals table, and a known-defects table (defect, expected,
-   actual).
+2. Read the totals from the CLI summary: requests, assertions, failed
+   assertions, failed scripts, average response time and duration.
+3. Write `reports/<run>/summary.md` with a one-line verdict first (PASS or
+   FAIL from the exit code; for the known-defects run, "N of M known defects
+   still present"), the totals table, and one row per failed assertion
+   (request and failure message) from `junit.xml`.
 4. When publishing several reports together (main and known defects), write a
    small `index.html` that links to each and shows the one-line verdicts.
 5. Update the README's results section with the latest totals and the date.
