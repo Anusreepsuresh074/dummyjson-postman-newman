@@ -109,6 +109,18 @@
       "value": "",
       "type": "string",
       "description": "Set during a run (chaining); empty in the file."
+    },
+    {
+      "key": "patchOriginalPrice",
+      "value": "",
+      "type": "string",
+      "description": "Set during a run (chaining); empty in the file."
+    },
+    {
+      "key": "productTotalBeforeAdd",
+      "value": "",
+      "type": "string",
+      "description": "Set during a run (chaining); empty in the file."
     }
   ],
   "item": [
@@ -391,6 +403,60 @@
           "response": []
         },
         {
+          "id": "b93c7489-5364-5db7-a6d9-73657faac905",
+          "name": "Malformed JSON body is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The body is cut off mid-object. It holds no real credentials, because a parser error can quote the body back.",
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('a non-empty error message is returned', () => {",
+                  "    // The message is the JSON parser's own (e.g. \"Unexpected end of JSON input\"), so only its presence is checked.",
+                  "    pm.expect(pm.response.json().message).to.be.a('string').and.not.be.empty;",
+                  "});",
+                  "pm.test('no tokens are issued', () => pm.expect(pm.response.json()).to.not.have.property('accessToken'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**TC-post-auth-login-negative-malformed-json** \u00b7 RULE-auth-login-rejects-malformed-json",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"not-a-real-user\",\n  \"password\":",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
           "id": "c9012338-63f1-55c5-a2fd-7e88a1e6f453",
           "name": "Current user with a valid token",
           "event": [
@@ -536,6 +602,10 @@
                   "pm.test('the refreshed token still identifies the test user', () => {",
                   "    // A true/false match on purpose: eql would print the test user's name in a failure message.",
                   "    pm.expect(pm.response.json().username === pm.environment.get('username'), 'username matches the test user').to.be.true;",
+                  "});",
+                  "pm.test('the refreshed access token is a new token', () => {",
+                  "    // A true/false check on purpose: eql would print both tokens in a failure message.",
+                  "    pm.expect(pm.environment.get('refreshedAccessToken') !== pm.environment.get('accessToken'), 'refreshed token differs from the original').to.be.true;",
                   "});"
                 ]
               }
@@ -1248,6 +1318,43 @@
             }
           },
           "response": []
+        },
+        {
+          "id": "56d7cdff-1dd7-5434-a7b2-785e34b08b61",
+          "name": "Non-numeric product id returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test(\"message is \\\"Product with id 'abc' not found\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Product with id 'abc' not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "abc"
+              ]
+            },
+            "description": "**TC-get-products-id-negative-non-numeric-id** \u00b7 RULE-products-unknown-id-not-found",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -1571,7 +1678,17 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.variables.set('newTitle', `Postman test product ${Date.now()}`);"
+                  "pm.variables.set('newTitle', `Postman test product ${Date.now()}`);",
+                  "// Read the catalogue size first: DummyJSON gives a new product the id total + 1.",
+                  "pm.sendRequest({",
+                  "    url: pm.environment.get('baseUrl') + '/products?limit=1&select=id',",
+                  "    header: { 'User-Agent': 'dummyjson-postman-newman' }",
+                  "}, (err, res) => {",
+                  "    if (err || res.code !== 200) {",
+                  "        throw new Error(`could not read the product total: ${err || res.code}`);",
+                  "    }",
+                  "    pm.collectionVariables.set('productTotalBeforeAdd', res.json().total);",
+                  "});"
                 ]
               }
             },
@@ -1583,6 +1700,7 @@
                   "pm.test('status is 201', () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
                   "pm.test('it gets a new integer id', () => pm.expect(body.id).to.be.a('number'));",
+                  "pm.test('the new id is the product total + 1', () => pm.expect(body.id).to.eql(Number(pm.collectionVariables.get('productTotalBeforeAdd')) + 1));",
                   "pm.test('every field sent is echoed back', () => {",
                   "    pm.expect(body.title).to.eql(pm.variables.get('newTitle'));",
                   "    pm.expect(body.price).to.eql(19.99);",
@@ -1740,6 +1858,24 @@
           "name": "Patch a product's price",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Read the product's current price first, so the read-back below can prove the patch was not saved.",
+                  "pm.sendRequest({",
+                  "    url: pm.environment.get('baseUrl') + '/products/3?select=price',",
+                  "    header: { 'User-Agent': 'dummyjson-postman-newman' }",
+                  "}, (err, res) => {",
+                  "    if (err || res.code !== 200) {",
+                  "        throw new Error(`could not read product 3's original price: ${err || res.code}`);",
+                  "    }",
+                  "    pm.collectionVariables.set('patchOriginalPrice', res.json().price);",
+                  "});"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
@@ -1794,7 +1930,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status is 200', () => pm.response.to.have.status(200));",
-                  "pm.test('the price was not really changed', () => pm.expect(pm.response.json().price).to.not.eql(1.23));"
+                  "pm.test('the price is still the original, not the patched 1.23', () => {",
+                  "    pm.expect(pm.response.json().price).to.eql(Number(pm.collectionVariables.get('patchOriginalPrice')));",
+                  "});"
                 ]
               }
             }
@@ -2120,6 +2258,58 @@
           "response": []
         },
         {
+          "id": "d2ec9740-4fd5-5ed3-a9ab-c57433c178b0",
+          "name": "Protected add without a token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test(\"message is \\\"Access Token is required\\\"\", () => {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"Access Token is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/products/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "products",
+                "add"
+              ]
+            },
+            "description": "**TC-post-auth-products-add-auth-authz-no-token** \u00b7 RULE-auth-bearer-required-on-auth-routes",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Added without a token\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
           "id": "c3ee09a7-d2f2-51b2-9474-613a9d4305a5",
           "name": "Protected delete without a token",
           "event": [
@@ -2428,7 +2618,12 @@
                   "    method: 'POST',",
                   "    header: { 'Content-Type': 'application/json', 'User-Agent': 'dummyjson-postman-newman' },",
                   "    body: { mode: 'raw', raw: JSON.stringify({ refreshToken: pm.environment.get('refreshToken'), expiresInMins: 30 }) }",
-                  "}, () => {});"
+                  "}, (err, res) => {",
+                  "    // If the first refresh fails, the request below would fail for the wrong reason: stop here instead.",
+                  "    if (err || res.code !== 200) {",
+                  "        throw new Error(`first refresh failed: ${err || res.code}`);",
+                  "    }",
+                  "});"
                 ]
               }
             },

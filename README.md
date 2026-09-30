@@ -3,14 +3,16 @@
 ![API tests](https://github.com/Anusreepsuresh074/dummyjson-postman-newman/actions/workflows/newman.yml/badge.svg)
 **[Live reports](https://anusreepsuresh074.github.io/dummyjson-postman-newman/)**
 
+**Latest result** (verified locally on 2026-09-30 with the same `scripts/run-newman.sh` runs CI uses): main 219 of 219 assertions passed, data-driven 29 of 29 passed, 13 of 13 known defects still present.
+
 A **Postman** collection for the [DummyJSON](https://dummyjson.com) e-commerce API, run from the command line and in CI with **Newman**. It covers the JWT auth flow (login, current user, refresh) and the products resource: paging, field selection, sorting, validation, search, categories and simulated writes.
 
-**58 requests in 7 folders, built from a 58-row test case matrix that was audited against every endpoint and business rule before any request was written.** Every request asserts its status, the body facts that matter, and a JSON Schema where the shape is known; shared checks (response time, JSON content type, the standard error body) run on every request from one collection-level script. Tokens are chained through variables, one folder is data-driven from a CSV file, and 13 real API defects are kept visible in their own folder without breaking the build.
+**61 requests in 7 folders, built from a 61-row test case matrix that was audited against every endpoint and business rule before any request was written.** Every request asserts its status, the body facts that matter, and a JSON Schema where the shape is known; shared checks (response time, JSON content type, the standard error body) run on every request from one collection-level script. Tokens are chained through variables, one folder is data-driven from a CSV file, and 13 real API defects are kept visible in their own folder without breaking the build.
 
 ```
-main run      43 requests (+1 sent by a pre-request script), 201 assertions, 0 failed   (~25 s)
+main run      46 requests (+3 sent by pre-request scripts), 219 assertions, 0 failed   (~22 s)
 data run       6 iterations,  29 assertions, 0 failed
-defects run   13 of 13 known defects still present (expected)
+defects run   14 requests (+1 sent by a pre-request script), 50 assertions, 13 failed: the 13 known defects (expected)
 ```
 
 This is the Postman companion to my [DummyJSON API test automation in Python + pytest](https://github.com/Anusreepsuresh074/ecommerce-api-automation) and my [DummyJSON performance tests in JMeter](https://github.com/Anusreepsuresh074/ecommerce-performance-testing): the same API, tested for correctness in two tools and for speed in a third.
@@ -19,7 +21,7 @@ This is the Postman companion to my [DummyJSON API test automation in Python + p
 
 | Skill | Where to see it |
 |---|---|
-| **Test design before tooling:** a 58-row matrix, each row traced to a business rule, audited with `coverage-audit` and approved before any request was built | [`context/test-case-matrix.md`](context/test-case-matrix.md), [`context/coverage-audit-report.md`](context/coverage-audit-report.md) |
+| **Test design before tooling:** a 61-row matrix, each row traced to a business rule, audited with `coverage-audit` and approved before any request was built | [`context/test-case-matrix.md`](context/test-case-matrix.md), [`context/coverage-audit-report.md`](context/coverage-audit-report.md) |
 | **Postman scripting:** `pm.test` assertions, `pm.response.to.have.jsonSchema`, pre-request scripts, `pm.sendRequest`, decoding a JWT with `crypto-js` | the collection's test and pre-request scripts |
 | **Chaining:** the login token, the refreshed token, a new product id and category slugs flow from one request to the next through variables | `01 Auth`, `03 Search and categories`, `04 Product writes` |
 | **Shared rules in one place:** collection-level scripts and JSON Schemas stored as collection variables | the collection's own Scripts and Variables tabs |
@@ -34,11 +36,11 @@ This is the Postman companion to my [DummyJSON API test automation in Python + p
 
 | Folder | Requests | What it covers |
 |---|---|---|
-| `01 Auth` | 11 | Login (valid, wrong password, unknown user, missing fields, token lifetime), current user with and without a token, refresh, and the refreshed token working |
-| `02 Products` | 13 | Default page, limit and skip, `limit=0` (all 194 products schema-checked), past the end, select, sort, invalid limit / skip / order / date / delay, by id, unknown id |
+| `01 Auth` | 12 | Login (valid, wrong password, unknown user, missing fields, malformed JSON, token lifetime), current user with and without a token, refresh, and the refreshed token working (and being a new token) |
+| `02 Products` | 14 | Default page, limit and skip, `limit=0` (all 194 products schema-checked), past the end, select, sort, invalid limit / skip / order / date / delay, by id, unknown and non-numeric id |
 | `03 Search and categories` | 7 | Search relevance and case, no match, both category lists agree, category filter, unknown category |
-| `04 Product writes` | 7 | Add, update, patch, delete, with read-backs proving nothing is saved; unknown id |
-| `05 Protected routes` | 5 | The Bearer-protected `/auth/products` routes, with and without a token |
+| `04 Product writes` | 7 | Add (new id = total + 1), update, patch, delete, with read-backs against the original values proving nothing is saved; unknown id |
+| `05 Protected routes` | 6 | The Bearer-protected `/auth/products` routes (list, add, delete), with and without a token |
 | `06 Data-driven search` | 1 × 6 rows | One search per CSV term, 5 with matches and 1 without |
 | `99 Known defects` | 14 | 13 defects (below) plus a login; asserts the correct behaviour, so it fails until DummyJSON fixes them |
 
@@ -67,6 +69,7 @@ The same 13 defects the companion pytest suite pins as strict xfails, re-confirm
 - **One environment file.** DummyJSON has a single public host, so there is no dev/staging split to model; adding one would be padding. A second environment would be one more file in `environments/`.
 - **Strict schemas on purpose.** The login, refresh, product and category schemas forbid undocumented fields (`additionalProperties: false`), so a silently added or renamed field fails the run. That is a contract choice: a real API change is reviewed, not absorbed.
 - **Auth declared on each request.** Every request states its auth (Bearer, or none for negative cases) instead of inheriting it, because the cookie finding below showed how inherited or hidden authentication can make a "no token" test pass for the wrong reason.
+- **No secrets in failure messages.** Checks on the username and on tokens (the logged-in user is the test user, access and refresh tokens differ, a refreshed token is new) assert a true/false match instead of `eql`, because Chai's `eql` prints both values when it fails and the report would then contain the test user's name or a live token.
 - **Variable scopes.** `username`, `password` and the three tokens live in the environment (the tokens and password as `secret`); values passed between requests during a run (totals, ids, slugs) are collection variables; per-request values are local.
 
 ## Found while building it
@@ -112,11 +115,11 @@ Repository secrets needed: `AUTH_USERNAME`, `AUTH_PASSWORD`. Without them the ru
 | Path | What it is |
 |---|---|
 | `collections/` | The Postman collection (v2.1): the source of truth |
-| `environments/` | The environment file: `baseUrl` and limits only, no credentials |
+| `environments/` | The environment file: `baseUrl`, the response-time limit, and empty slots for credentials and tokens (filled at run time) |
 | `data/search-terms.csv` | Iteration data for the data-driven folder |
 | `context/api-context.md` | The API's endpoints, business rules and observed behaviour |
 | `context/api-auth.md` | How login, tokens and negative auth states work, and how tokens are kept out of files |
-| `context/test-case-matrix.md` | The 58-row test design every request maps to |
+| `context/test-case-matrix.md` | The 61-row test design every request maps to |
 | `context/coverage-audit-report.md` | The review of the matrix against every endpoint and rule |
 | `context/newman-validation-report.md` | What the first live runs showed, including the defects and the fixes |
 | `scripts/` | `run-newman.sh` (the one way to run), `check-secrets.sh`, `summarize.py`, `build-site.py` |
